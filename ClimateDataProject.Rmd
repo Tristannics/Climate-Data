@@ -1,0 +1,278 @@
+---
+title: "Final Project"
+output:
+ 
+  word_document: default
+---
+
+```{r}
+setwd("~/Documents/UniversityofNewcastle/STAT6020 - 2021/Assignments")
+wbcc <- read.csv("wbcc_bc.csv", header = TRUE)# Reading in the dataset for analysis
+```
+```{r}
+wbcc2 <- wbcc[, c(2,76, 78, 75, 77, 79, 74, 17, 37, 29, 28, 47, 49, 51, 52, 23, 26, 46, 44)]# Selecting the variables of interest to investigate 
+summary(wbcc2)
+```
+Comments Here -> Discussing the variables generally, Na's and further changes needed such as names.
+
+```{r}
+library(data.table)
+setnames(wbcc2, "SP.POP.TOTL", "Total_Population")
+setnames(wbcc2, "SP.URB.TOTL", "Urban_Population")
+setnames(wbcc2, "SP.POP.GROW", "Population_Growth")
+setnames(wbcc2, "SP.URB.GROW", "Urban_Population_Growth")
+setnames(wbcc2, "SP.URB.TOTL.IN.ZS", "Urban_Population_Percent")
+setnames(wbcc2, "EG.ELC.ACCS.ZS", "Access_Electricity")
+setnames(wbcc2, "EN.ATM.CO2E.PC", "Carbon_Dioxide_Emissions")
+setnames(wbcc2, "EG.USE.PCAP.KG.OE", "Energy_Use")
+setnames(wbcc2, "EG.USE.ELEC.KH.PC", "Electric_Power_Consumption")
+setnames(wbcc2, "EN.ATM.GHGT.KT.CE", "Tot_Greenhouse_Gas_Emissions")
+setnames(wbcc2, "EN.ATM.METH.KT.CE", "Methane_Emissions")
+setnames(wbcc2, "EN.ATM.NOXE.KT.CE", "Nitrous_Oxide_Emissions")
+setnames(wbcc2, "EN.ATM.PFCG.KT.CE", "PFC_Gas_Emissions")
+setnames(wbcc2, "EN.ATM.SF6G.KT.CE", "SFSix_Gas_Emissions")
+setnames(wbcc2, "EN.ATM.HFCG.KT.CE", "HFC_Gas_Emissions")
+setnames(wbcc2, "EG.ELC.RNEW.ZS", "Renewable_Elec_Output")
+setnames(wbcc2, "EG.FEC.RNEW.ZS", "Renewable_Energy_Consumption")
+setnames(wbcc2, "SI.POV.DDAY", "Poverty_headcount_Ratio")
+summary(wbcc2)
+```
+Comment Here -> Highlighting what the change has done 
+
+```{r}
+wbcc3 <- wbcc2[, -1]
+summary(wbcc3)
+```
+Highlighting that only numeric variables now exist
+
+EXPLORATORY ANALYSIS BEFORE ANY MODELS ARE IMPLEMENTED
+
+```{r}
+wbcc4 <- na.omit(wbcc3)# Removing all observations with Na Values
+```
+
+```{r}
+library(ggcorrplot)
+corrwbcc4 <- cor(na.omit(wbcc4))
+ggcorrplot(corrwbcc4, lab = TRUE, lab_size = 1.8, tl.cex = 4.4, title = "Correlation Matrix Between Variables")
+```
+Comment Here -> Comment on where some correlation can be seen between variables and why this may be the case. 
+
+```{r}
+wbcc4_hist <- hist(wbcc4$Tot_Greenhouse_Gas_Emissions, xlab = "Total Greenhouse Gas Emissions", main = "Total Greenhouse Gas Emissions")
+wbcc4_hist
+```
+```{r}
+summary(wbcc4$Tot_Greenhouse_Gas_Emissions)
+```
+Comment Here -> Notice the huge amount of right skew in the data. Also seen via median vs mean in the summary statistics. 
+
+```{r}
+wbcc4_boxplot <- boxplot(wbcc4$Tot_Greenhouse_Gas_Emissions, ylab = "Total Greenhouse Gas Emissions", data = wbcc4)
+wbcc4_boxplot
+```
+Comment here -> This can be seen even more vividly in this boxplot. Huge amount of skew in the data effecting the mean vs median. There are many outliers.
+
+```{r}
+wbcc5 <- subset(wbcc4, wbcc4$Tot_Greenhouse_Gas_Emissions > 22475 & wbcc4$Tot_Greenhouse_Gas_Emissions < 249375)# Creating a new subset of observations with the middle 50% in total greenhouse gas emissions.
+```
+
+```{r}
+wbcc5_hist <- hist(wbcc5$Tot_Greenhouse_Gas_Emissions, xlab = "Total Greenhouse Gas Emissions", main = "Total Greenhouse Gas Emissions (Middle 50%)")
+wbcc5_hist
+```
+Comment Here -> Notice less skew in the data but still some
+```{r}
+summary(wbcc5$Tot_Greenhouse_Gas_Emissions)
+```
+Comment Here -> Notice that mean and median are closer due to less skew in the data. 
+
+```{r}
+wbcc5_boxplot <- boxplot(wbcc5$Tot_Greenhouse_Gas_Emissions, ylab = "Total Greenhouse gas Emissions", data = wbcc5)
+wbcc5_boxplot
+```
+Comment Here -> much less skew however still some outliers still exist. More usable data for models. Talk about observations going from 217 to 119 to 59 and the effect of this on the results. 
+
+
+IMPLEMENTING MODELS FOR PREDICIVE ANALYSIS
+
+```{r}
+wbcc5_lm <- lm(wbcc5$Tot_Greenhouse_Gas_Emissions ~ ., data = wbcc5)
+summary(wbcc5_lm)
+```
+Comment Here -> Look at significant variables. Interpret their exact results. Work out and state their confidence intervals. 
+
+```{r}
+plot(wbcc5_lm, which = 1)
+```
+Comment on this plot. Talk about constant variance, outliers and linearity. 
+
+```{r}
+library(glmnet)
+wbcc5_matrix <- model.matrix(wbcc5$Tot_Greenhouse_Gas_Emissions ~ ., data = wbcc5)
+wbcc5_st <- scale(wbcc5)
+X <- wbcc5_matrix[,-1]
+Y <- wbcc5$Tot_Greenhouse_Gas_Emissions
+wbcc5_lasso = glmnet(X, Y, alpha = 1)
+plot(wbcc5_lasso, label = TRUE)
+```
+Comments Here 
+
+
+```{r}
+cv_lasso = cv.glmnet(X, Y, alpha = 1)
+plot(cv_lasso)
+```
+Comment here
+
+```{r}
+coef(cv_lasso)
+```
+Comment here and compare to original Lm model.
+
+```{r}
+wbcc5_lm_lasso <- lm(wbcc5$Tot_Greenhouse_Gas_Emissions ~ wbcc5$Urban_Population + wbcc5$Carbon_Dioxide_Emissions + wbcc5$Methane_Emissions + wbcc5$SFSix_Gas_Emissions + wbcc5$Renewable_Energy_Consumption, data = wbcc5)
+summary(wbcc5_lm_lasso)
+```
+Comments Here -> compare to original LM model including the precise coefficients and effect on the response. 
+
+```{r}
+wbcc6 <- subset(wbcc4, wbcc4$Tot_Greenhouse_Gas_Emissions > 249375)
+summary(wbcc6$Tot_Greenhouse_Gas_Emissions)
+```
+Make some comments here about the spread, median vs mean. 
+
+```{r}
+wbcc6_boxplot <- boxplot(wbcc6$Tot_Greenhouse_Gas_Emissions, ylab = "Total Greenhouse Gas Emissions", data = wbcc6)
+wbcc6_boxplot
+```
+Comment on the spread. Possibly no point running a linear regression model on this data. 30 observations so too low to run a model as well. 
+
+```{r}
+library(tree)
+wbcc5_tree <- tree(formula = wbcc5$Tot_Greenhouse_Gas_Emissions ~ ., data = wbcc5)
+plot(wbcc5_tree)
+text(wbcc5_tree, cex = 0.5)
+```
+Comment Here on the regression tree an what it is exactly telling us. 
+
+```{r}
+wbcc5_tree
+```
+Comment Here on the above results. going into detail on number of observations and where they break off. 
+
+```{r}
+library(randomForest)
+wbcc5_RF <- randomForest(wbcc5$Tot_Greenhouse_Gas_Emissions ~ ., data = wbcc5)
+wbcc5_RF
+```
+Comment on these results 
+
+```{r}
+varImpPlot(wbcc5_RF, main = "Importance of Variables")
+```
+Comment on these results and relation to regression tree and linear model. 
+
+```{r}
+quantile(wbcc4$Tot_Greenhouse_Gas_Emissions, prob = seq(0, 1, length = 11), type = 5)
+```
+
+```{r}
+wbcc4$Greenhouse_Emissions_Cat <- as.factor(
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 2040, "0%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 10336, "00-10%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 18043, "10-20%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 34488, "20-30%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 46050, "30-40%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 62600, "40-50%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 93766, "50-60%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 195996, "60-70%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 328536, "70-80%",
+  ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 654080, "80-90%",
+ifelse(wbcc4$Tot_Greenhouse_Gas_Emissions < 12355241, "90-100%", "Other"))))))))))))
+```
+
+```{r}
+summary(wbcc4$Greenhouse_Emissions_Cat)
+```
+Comment on why this was done. Include competition amongst countries to hold up their end. 
+
+```{r}
+wbcc7 <- wbcc4[, -18]
+wbcc7_tree_class <- tree(wbcc7$Greenhouse_Emissions_Cat ~., data = wbcc7)
+plot(wbcc7_tree_class)
+text(wbcc7_tree_class, cex=0.35)
+```
+Comment on this tree and what it tells us about how smaller emission countries can move lower and big ones move lower and how much control they actualy have. 
+
+
+```{r}
+summary(wbcc7_tree_class)
+```
+Comments Here 
+
+```{r}
+library(naivebayes)
+no_obs <- dim(wbcc4)[1]
+accuracy <- rep(0,10)
+for(i in 1:10){
+wbcc4_test_index <- sample(no_obs, size = as.integer(no_obs*0.10), replace = FALSE)
+wbcc4_training_index <- -wbcc4_test_index
+wbcc4_NaiveBayes <- naive_bayes(Greenhouse_Emissions_Cat ~., data = wbcc4[wbcc4_training_index,])
+wbcc4_pred_class <- predict(wbcc4_NaiveBayes, newdata = wbcc4[wbcc4_test_index, -19], type = "class")
+cont_table <- table(wbcc4_pred_class, wbcc4$Greenhouse_Emissions_Cat[wbcc4_test_index])
+accuracy[i] <- sum(diag(cont_table))/sum(cont_table)
+}
+accuracy
+```
+```{r}
+mean(accuracy)
+```
+Brief comment here on the above
+
+```{r}
+library(MASS)
+set.seed(0)
+no_obs <- dim(wbcc4)[1]
+lda.accuracy <- rep(0,10)
+for(i in 1:10){
+wbcc4_lda_test_index <- sample(no_obs, size = as.integer(no_obs*0.2), replace = FALSE)
+wbcc4_lda_training_index <- -wbcc4_lda_test_index
+wbcc4_lda.fit <- lda(Greenhouse_Emissions_Cat ~ ., data = wbcc4, subset = wbcc4_lda_training_index)
+wbcc4_lda.pred <- predict(wbcc4_lda.fit, wbcc4[wbcc4_lda_test_index, -19])
+wbcc4_lda.Pred_class <- wbcc4_lda.pred$class
+Lda_Cont_tab <- table(wbcc4_lda.Pred_class, wbcc4$Greenhouse_Emissions_Cat[wbcc4_lda_test_index])
+lda.accuracy[i] <- sum(diag(Lda_Cont_tab))/sum(Lda_Cont_tab)
+}
+lda.accuracy
+```
+```{r}
+mean(lda.accuracy)
+```
+Comment here - why so low?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
